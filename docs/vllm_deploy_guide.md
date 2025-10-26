@@ -2,6 +2,14 @@
 
 We recommend using [vLLM](https://docs.vllm.ai/en/stable/) to deploy the [MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2) model. vLLM is a high-performance inference engine with excellent serving throughput, efficient and intelligent memory management, powerful batch request processing capabilities, and deeply optimized underlying performance. We recommend reviewing vLLM's official documentation to check hardware compatibility before deployment.
 
+## Applicable Models
+
+This document applies to the following models. You only need to change the model name during deployment.
+
+- [MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2)
+
+The deployment process is illustrated below using MiniMax-M2 as an example.
+
 ## System Requirements
 
 - OS: Linux
@@ -12,25 +20,24 @@ We recommend using [vLLM](https://docs.vllm.ai/en/stable/) to deploy the [MiniMa
 
   - compute capability 7.0 or higher
 
-  - Memory requirements: 220 GB for weights, 60 GB per 1M context tokens
+  - Memory requirements: 220 GB for weights, 240 GB per 1M context tokens
 
 The following are recommended configurations; actual requirements should be adjusted based on your use case:
 
-- 4x 96GB GPUs: Supports context input of up to 400K tokens.
+- 4x 96GB GPUs: Supported context length of up to 400K tokens.
 
-- 8x 144GB GPUs: Supports context input of up to 3M tokens.
+- 8x 144GB GPUs: Supported context length of up to 3M tokens.
 
 ## Deployment with Python
 
-It is recommended to use a virtual environment (such as venv, conda, or uv) to avoid dependency conflicts. We recommend installing vLLM in a fresh Python environment:
+It is recommended to use a virtual environment (such as **venv**, **conda**, or **uv**) to avoid dependency conflicts. 
+
+We recommend installing vLLM in a fresh Python environment:
 
 ```bash
-# Not yet released, please install nightly build
-uv pip install -U vllm \
-    --torch-backend=auto \
-    --extra-index-url https://wheels.vllm.ai/nightly
-# If released, install using uv
-uv pip install "vllm" --torch-backend=auto
+uv venv
+source .venv/bin/activate
+uv pip install vllm --extra-index-url https://wheels.vllm.ai/nightly
 ```
 
 Run the following command to start the vLLM server. vLLM will automatically download and cache the MiniMax-M2 model from Hugging Face.
@@ -38,12 +45,21 @@ Run the following command to start the vLLM server. vLLM will automatically down
 4-GPU deployment command:
 
 ```bash
-SAFETENSORS_FAST_GPU=1 VLLM_USE_V1=0 vllm serve \
-    --model MiniMaxAI/MiniMax-M2 \
-    --trust-remote-code \
-    --enable-expert-parallel --tensor-parallel-size 4 \
+SAFETENSORS_FAST_GPU=1 vllm serve \
+    MiniMaxAI/MiniMax-M2 --trust-remote-code \
+    --tensor-parallel-size 4 \
     --enable-auto-tool-choice --tool-call-parser minimax_m2 \
-    --reasoning-parser minimax_m2
+    --reasoning-parser minimax_m2_append_think
+```
+
+8-GPU deployment command:
+
+```bash
+SAFETENSORS_FAST_GPU=1 vllm serve \
+    MiniMaxAI/MiniMax-M2 --trust-remote-code \
+    --enable_expert_parallel --tensor-parallel-size 8 \
+    --enable-auto-tool-choice --tool-call-parser minimax_m2 \
+    --reasoning-parser minimax_m2_append_think 
 ```
 
 ## Testing Deployment
@@ -76,11 +92,23 @@ export HF_ENDPOINT=https://hf-mirror.com
 
 This vLLM version is outdated. Please upgrade to the latest version.
 
+### torch.AcceleratorError: CUDA error: an illegal memory access was encountered
+Add `--compilation-config "{\"cudagraph_mode\": \"PIECEWISE\"}"` to the startup parameters to resolve this issue. For example:
+
+```bash
+SAFETENSORS_FAST_GPU=1 vllm serve \
+    MiniMaxAI/MiniMax-M2 --trust-remote-code \
+    --enable_expert_parallel --tensor-parallel-size 8 \
+    --enable-auto-tool-choice --tool-call-parser minimax_m2 \
+    --reasoning-parser minimax_m2_append_think \
+    --compilation-config "{\"cudagraph_mode\": \"PIECEWISE\"}"
+```
+
 ## Getting Support
 
 If you encounter any issues while deploying the MiniMax model:
 
-- Contact our technical support team through official channels such as email at api@minimaxi.com
+- Contact our technical support team through official channels such as email at [model@minimax.io](mailto:model@minimax.io)
 
 - Submit an issue on our [GitHub](https://github.com/MiniMax-AI) repository
 
